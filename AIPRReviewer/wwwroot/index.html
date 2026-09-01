@@ -1,0 +1,362 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI PR Reviewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 720px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+            header h1 {
+                font-size: 26px;
+                color: #58a6ff;
+                margin-bottom: 8px;
+            }
+
+            header p {
+                color: #8b949e;
+                font-size: 14px;
+            }
+
+        .input-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        #pr-input {
+            flex: 1;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            background: #0d1117;
+            color: #e6edf3;
+            font-size: 14px;
+            outline: none;
+        }
+
+            #pr-input:focus {
+                border-color: #58a6ff;
+            }
+
+        #analyze-btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            background: #238636;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+            #analyze-btn:hover {
+                background: #2ea043;
+            }
+
+            #analyze-btn:disabled {
+                background: #30363d;
+                cursor: not-allowed;
+            }
+
+        .hint {
+            font-size: 12px;
+            color: #8b949e;
+            margin-top: 10px;
+        }
+
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: #8b949e;
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #30363d;
+            border-top-color: #58a6ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #error-box {
+            display: none;
+            background: #2d1418;
+            border: 1px solid #f85149;
+            color: #f85149;
+            padding: 14px 18px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        #result {
+            display: none;
+        }
+
+        .pr-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #e6edf3;
+        }
+
+        .summary-box {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 18px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #c9d1d9;
+        }
+
+            .summary-box .label {
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                color: #8b949e;
+                margin-bottom: 8px;
+                font-weight: 600;
+            }
+
+        .findings-label {
+            font-size: 13px;
+            color: #8b949e;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .finding {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-left: 3px solid #30363d;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+        }
+
+            .finding.severity-bilgi {
+                border-left-color: #58a6ff;
+            }
+
+            .finding.severity-öneri {
+                border-left-color: #d29922;
+            }
+
+            .finding.severity-uyarı {
+                border-left-color: #f85149;
+            }
+
+        .finding-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+            .badge.severity-bilgi {
+                background: #1c3a5e;
+                color: #58a6ff;
+            }
+
+            .badge.severity-öneri {
+                background: #3d2e0a;
+                color: #d29922;
+            }
+
+            .badge.severity-uyarı {
+                background: #3d1418;
+                color: #f85149;
+            }
+
+        .finding-file {
+            font-size: 12px;
+            color: #8b949e;
+            font-family: 'Consolas', monospace;
+        }
+
+        .finding-comment {
+            font-size: 14px;
+            color: #c9d1d9;
+            line-height: 1.5;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 12px;
+            color: #6e7681;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>🤖 AI PR Reviewer</h1>
+            <p>GitHub PR linkini yapıştır, Gemini AI kod kalitesini incelesin</p>
+        </header>
+
+        <div class="input-card">
+            <div class="input-row">
+                <input id="pr-input" placeholder="https://github.com/owner/repo/pull/12" autocomplete="off" />
+                <button id="analyze-btn" onclick="analyze()">İncele</button>
+            </div>
+            <div class="hint">Sadece public repo'lardaki PR'lar desteklenir.</div>
+        </div>
+
+        <div id="error-box"></div>
+
+        <div id="loading">
+            <div class="spinner"></div>
+            <div>PR inceleniyor, bu birkaç saniye sürebilir...</div>
+        </div>
+
+        <div id="result">
+            <div class="pr-title" id="pr-title"></div>
+            <div class="summary-box">
+                <div class="label">Genel Değerlendirme</div>
+                <div id="summary-text"></div>
+            </div>
+            <div class="findings-label">Bulgular</div>
+            <div id="findings-list"></div>
+        </div>
+
+        <footer>.NET 9 + Gemini API ile geliştirildi</footer>
+    </div>
+
+    <script>
+    async function analyze() {
+        const url = document.getElementById("pr-input").value.trim();
+        if (!url) { showError("Lütfen bir PR linki girin."); return; }
+
+        const btn = document.getElementById("analyze-btn");
+        btn.disabled = true;
+        btn.textContent = "İnceleniyor...";
+
+        document.getElementById("error-box").style.display = "none";
+        document.getElementById("result").style.display = "none";
+        document.getElementById("loading").style.display = "block";
+
+        try {
+            const response = await fetch("/api/Review/analyze", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pullRequestUrl: url })
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                showError(data.error || "Bilinmeyen bir hata oluştu.");
+                return;
+            }
+
+            renderResult(data);
+
+        } catch (err) {
+            showError("Sunucuya bağlanılamadı. Lütfen tekrar deneyin.");
+        } finally {
+            document.getElementById("loading").style.display = "none";
+            btn.disabled = false;
+            btn.textContent = "İncele";
+        }
+    }
+
+    function renderResult(data) {
+        document.getElementById("pr-title").textContent = data.pullRequestTitle;
+        document.getElementById("summary-text").textContent = data.summary;
+
+        const list = document.getElementById("findings-list");
+        list.innerHTML = "";
+
+        if (!data.findings || data.findings.length === 0) {
+            list.innerHTML = '<div class="finding">Belirgin bir bulgu tespit edilmedi.</div>';
+        } else {
+            data.findings.forEach(f => {
+                const sevClass = "severity-" + (f.severity || "bilgi").toLowerCase();
+                const div = document.createElement("div");
+                div.className = `finding ${sevClass}`;
+                div.innerHTML = `
+                    <div class="finding-header">
+                        <span class="badge ${sevClass}">${escapeHtml(f.severity)}</span>
+                        <span class="finding-file">${escapeHtml(f.fileName)}</span>
+                    </div>
+                    <div class="finding-comment">${escapeHtml(f.comment)}</div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        document.getElementById("result").style.display = "block";
+    }
+
+    function showError(message) {
+        const box = document.getElementById("error-box");
+        box.textContent = message;
+        box.style.display = "block";
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    document.getElementById("pr-input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") analyze();
+    });
+    </script>
+</body>
+</html>
